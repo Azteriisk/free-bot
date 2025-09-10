@@ -3,3 +3,4 @@ aiohttp==3.9.5
 aiosqlite==0.20.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
+audioop-lts; python_version >= '3.13'

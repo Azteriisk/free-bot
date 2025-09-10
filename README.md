@@ -1,52 +1,90 @@
-Free Games Watcher Discord Bot
+🎮 Free Games Watcher (Discord Bot)
 
-This Discord bot announces games temporarily discounted to free on Epic Games Store and Steam, and provides a /freelist command. It excludes titles that are always free and supports per-guild region and channel settings (owner/admin only).
+Announces games temporarily discounted to free on Epic Games Store and Steam, and lists what’s free right now — excluding titles that are always free. Region-aware, channel-configurable, owner/admin‑only controls. Built with discord.py + SQLite.
 
-Quick Start
+✨ Features
 
-- Requirements: Python 3.11+, a Discord bot token
+- 🔔 Announcements: Posts new freebies to a channel you choose
+- 🆓 Paid → Free only: Filters out permanently free titles
+- 🌍 Region aware: Per‑guild country code (e.g., US, GB, DE)
+- 🛡️ Owner/Admin only: Settings restricted to trusted users
+- 💾 Lightweight storage: SQLite de‑dupes and persists deals
+- ⏱️ Polling: Periodic fetch of Epic + Steam feeds
+
+🚀 Quick Start
+
+- Requirements: Python 3.13+ (recommended), a Discord bot token
 - Install deps: `pip install -r requirements.txt`
-- Env vars: set `DISCORD_TOKEN` (and optional `POLL_MINUTES`, default 30)
-- Run: `python bot.py`
+- Configure env (see below) and run: `python bot.py`
 
-Slash Commands
+🧩 Slash Commands
 
-- /freelist: Show currently free paid games in the configured region
-- /freelist_region [code]: Owner/Admin only. Set or view the region (ISO 3166-1 alpha-2, e.g., US, GB, DE)
-- /freelist_channel #channel: Owner/Admin only. Set the announcement channel
-- /freelist_poll_now: Owner/Admin only. Force a fetch + announce for this server
-- /freelist_debug: Owner/Admin only. Show fetch diagnostics (counts and sample titles)
+- `/freelist` — Show currently free paid games in your configured region
+- `/freelist_region [code]` — Set or view the region (owner/admin; ISO 3166‑1 alpha‑2)
+- `/freelist_channel #channel` — Set the announcement channel (owner/admin)
+- `/freelist_poll_now` — Force a fetch + announce now (owner/admin)
+- `/freelist_debug` — Show fetch diagnostics (owner/admin)
 
-Notes
+🛠️ Setup
 
-- Deals are tracked in `free_deals.sqlite3` in the repo directory.
-- The poller posts new free games to the configured channel every `POLL_MINUTES` minutes.
-- Minimum bot permissions: Send Messages, Embed Links, Read Message History.
+1) Create a Discord application + bot (Developer Portal) and copy the bot token.
+2) Invite with scopes: `applications.commands`, `bot` and permissions: Send Messages, Embed Links, Read Message History.
+3) Environment variables (use `.env`):
+   - `DISCORD_TOKEN=YOUR_BOT_TOKEN`
+   - `POLL_MINUTES=30` (optional; default 30)
+4) First run in your server (owner/admin):
+   - `/freelist_region code: US` (or your country)
+   - `/freelist_channel channel: #your-channel`
+   - `/freelist` to view current freebies
 
-Python version
+📦 Environment (.env)
 
-- Recommended: Python 3.11 or 3.12.
-- If using Python 3.13, install the audioop backport to avoid an import error from discord.py's voice module:
-  `pip install audioop-lts`
+- Copy `.env.example` to `.env` and set values.
+- The bot auto‑loads `.env` via `python-dotenv`.
 
-Using a .env file
+🐍 Python Version
 
-- Create a file named `.env` in the project root (you can copy `.env.example`).
-- Add your variables, e.g.:
+- Recommended: Python 3.13+.
+- The requirements file includes `audioop-lts` conditionally for 3.13 so everything installs cleanly with `pip install -r requirements.txt`.
 
-  `DISCORD_TOKEN=YOUR_BOT_TOKEN`
+📡 Notes
 
-  `POLL_MINUTES=30`
+- Data is stored in `free_deals.sqlite3` in the repo directory.
+- The poller runs every `POLL_MINUTES` minutes (set in env).
+- Steam “free to keep” promos are rarer than Epic’s weekly freebies; zero results for Steam can be normal.
 
-- The bot automatically loads `.env` via `python-dotenv`.
+🐳 Optional: Docker
 
-Publishing to GitHub
+Use this Dockerfile:
 
-1) Initialize and commit (done if you followed this repo; shown for reference):
-   `git init && git add . && git commit -m "feat: free-bot initial"`
-2) Create a repo named `free-bot` on GitHub (web UI) or with GitHub CLI:
+```
+FROM python:3.13-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+ENV PYTHONUNBUFFERED=1
+CMD ["python", "bot.py"]
+```
+
+Build & run:
+
+```
+docker build -t free-bot .
+docker run --env-file .env --name free-bot free-bot
+```
+
+📤 Publish to GitHub
+
+1) Create the repo `free-bot` on GitHub (web UI) or with GitHub CLI:
    `gh repo create free-bot --public --source . --remote origin --push`
-3) If created via web UI, add the remote and push:
+2) If created via web UI, add remote and push:
    `git remote add origin https://github.com/USERNAME/free-bot.git`
    `git branch -M main`
    `git push -u origin main`
+
+🙋 Troubleshooting
+
+- Commands not showing? Global slash commands can take minutes to appear after first sync. If needed, re‑invite or restart the bot.
+- “Message content intent missing” warning is safe to ignore (this bot uses slash commands).
+- Seeing no freebies? Try `/freelist_debug` to confirm feed counts and sample titles. Epic weekends vary and Steam promos are sporadic.
