@@ -1,0 +1,39 @@
+# Environments
+.venv/
+venv/
+env/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+.pytest_cache/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local config/secrets
+.env
+.env.*
+.python-version
+
+# Local data
+free_deals.sqlite3
+*.sqlite3
+*.db
+*.log
+
+# Debug artifacts
+egs.json
+steam.json
+shared_conversation.html
+
+# Keys/certs (safety)
+*.pem
+*.key
+*.crt
