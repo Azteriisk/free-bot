@@ -20,6 +20,7 @@ Thumbs.db
 # Local config/secrets
 .env
 .env.*
+!.env.example
 .python-version
 
 # Local data
