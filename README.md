@@ -1,6 +1,6 @@
 🎮 Free Games Watcher (Discord Bot)
 
-Announces games temporarily discounted to free on Epic Games Store and Steam, and lists what’s free right now — excluding titles that are always free. Region-aware, channel-configurable, owner/admin‑only controls. Built with discord.py + SQLite.
+Announces games temporarily discounted to free on Epic Games Store and Steam, and lists what’s free right now — excluding titles that are always free. Region‑aware, channel‑configurable, owner/admin‑only controls. Built with discord.py + SQLite.
 
 ✨ Features
 
@@ -11,12 +11,6 @@ Announces games temporarily discounted to free on Epic Games Store and Steam, an
 - 💾 Lightweight storage: SQLite de‑dupes and persists deals
 - ⏱️ Polling: Periodic fetch of Epic + Steam feeds
 
-🚀 Quick Start
-
-- Requirements: Python 3.13+ (recommended), a Discord bot token
-- Install deps: `pip install -r requirements.txt`
-- Configure env (see below) and run: `python bot.py`
-
 🧩 Slash Commands
 
 - `/freelist` — Show currently free paid games in your configured region
@@ -25,35 +19,41 @@ Announces games temporarily discounted to free on Epic Games Store and Steam, an
 - `/freelist_poll_now` — Force a fetch + announce now (owner/admin)
 - `/freelist_debug` — Show fetch diagnostics (owner/admin)
 
+🧠 How It Detects Freebies
+
+- Epic Games Store: Active promo window flagged in the feed; counts a title as free when the promo is live and the original price was > $0 (Epic often reports `discountPercentage: 0` during free weeks; we rely on the promo window, not listed price).
+- Steam: Confirms via appdetails that it’s a game, not permanently free (`is_free == false`), and that `price_overview.final == 0` with a positive original price.
+
 🛠️ Setup
 
-1) Create a Discord application + bot (Developer Portal) and copy the bot token.
-2) Invite with scopes: `applications.commands`, `bot` and permissions: Send Messages, Embed Links, Read Message History.
-3) Environment variables (use `.env`):
-   - `DISCORD_TOKEN=YOUR_BOT_TOKEN`
-   - `POLL_MINUTES=30` (optional; default 30)
-4) First run in your server (owner/admin):
-   - `/freelist_region code: US` (or your country)
-   - `/freelist_channel channel: #your-channel`
-   - `/freelist` to view current freebies
+- Requirements: Python 3.13+ and a Discord bot token
+- Install: `pip install -r requirements.txt`
+- Configure env: copy `.env.example` to `.env`, then set `DISCORD_TOKEN` and optionally `POLL_MINUTES`
+- Run: `python bot.py`
+- First‑time in your server (owner/admin): `/freelist_region code: US`, `/freelist_channel channel: #your-channel`, then `/freelist`
 
 📦 Environment (.env)
 
-- Copy `.env.example` to `.env` and set values.
 - The bot auto‑loads `.env` via `python-dotenv`.
+- Example:
+  - `DISCORD_TOKEN=YOUR_BOT_TOKEN`
+  - `POLL_MINUTES=30`
 
 🐍 Python Version
 
-- Recommended: Python 3.13+.
-- The requirements file includes `audioop-lts` conditionally for 3.13 so everything installs cleanly with `pip install -r requirements.txt`.
+- Recommended: Python 3.13+ (requirements include the necessary backport for clean installs).
 
-📡 Notes
+🔗 Invite URL
 
-- Data is stored in `free_deals.sqlite3` in the repo directory.
-- The poller runs every `POLL_MINUTES` minutes (set in env).
-- Steam “free to keep” promos are rarer than Epic’s weekly freebies; zero results for Steam can be normal.
+Use this URL to invite your bot. Replace `YOUR_APP_ID` with your application’s ID from the Discord Developer Portal (General Information page). Do not use your bot token here.
 
-🐳 Optional: Docker
+`https://discord.com/api/oauth2/authorize?client_id=YOUR_APP_ID&scope=bot%20applications.commands&permissions=84992`
+
+- `client_id`: your Application ID (a numeric ID), not the token.
+- `scope`: keeps slash commands and bot permissions.
+- `permissions=84992`: View Channels (1024) + Send Messages (2048) + Embed Links (16384) + Read Message History (65536). Adjust if you need more.
+
+🐳 Docker (Optional)
 
 Use this Dockerfile:
 
@@ -74,15 +74,11 @@ docker build -t free-bot .
 docker run --env-file .env --name free-bot free-bot
 ```
 
-🔗 Invite URL
+ℹ️ Notes
 
-Use this URL to invite your bot. Replace `YOUR_APP_ID` with your application’s ID from the Discord Developer Portal (General Information page). Do not use your bot token here.
-
-`https://discord.com/api/oauth2/authorize?client_id=YOUR_APP_ID&scope=bot%20applications.commands&permissions=84992`
-
-- `client_id`: your Application ID (a numeric ID), not the token.
-- `scope`: keeps slash commands and bot permissions.
-- `permissions=84992`: View Channels (1024) + Send Messages (2048) + Embed Links (16384) + Read Message History (65536). Adjust if you need more.
+- Data is stored in `free_deals.sqlite3` in the repo directory.
+- The poller runs every `POLL_MINUTES` minutes (set in env).
+- Steam “free to keep” promos are rarer than Epic’s weekly freebies; zero results for Steam can be normal.
 
 🙋 Troubleshooting
 
