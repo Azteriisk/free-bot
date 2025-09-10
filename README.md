@@ -74,14 +74,15 @@ docker build -t free-bot .
 docker run --env-file .env --name free-bot free-bot
 ```
 
-📤 Publish to GitHub
+🔗 Invite URL
 
-1) Create the repo `free-bot` on GitHub (web UI) or with GitHub CLI:
-   `gh repo create free-bot --public --source . --remote origin --push`
-2) If created via web UI, add remote and push:
-   `git remote add origin https://github.com/USERNAME/free-bot.git`
-   `git branch -M main`
-   `git push -u origin main`
+Use this URL to invite your bot. Replace `YOUR_APP_ID` with your application’s ID from the Discord Developer Portal (General Information page). Do not use your bot token here.
+
+`https://discord.com/api/oauth2/authorize?client_id=YOUR_APP_ID&scope=bot%20applications.commands&permissions=83968`
+
+- `client_id`: your Application ID (a numeric ID), not the token.
+- `scope`: keeps slash commands and bot permissions.
+- `permissions=83968`: minimal set for Send Messages (2048) + Embed Links (16384) + Read Message History (65536). Adjust if you need more.
 
 🙋 Troubleshooting
 
