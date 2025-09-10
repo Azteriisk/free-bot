@@ -78,11 +78,11 @@ docker run --env-file .env --name free-bot free-bot
 
 Use this URL to invite your bot. Replace `YOUR_APP_ID` with your application’s ID from the Discord Developer Portal (General Information page). Do not use your bot token here.
 
-`https://discord.com/api/oauth2/authorize?client_id=YOUR_APP_ID&scope=bot%20applications.commands&permissions=83968`
+`https://discord.com/api/oauth2/authorize?client_id=YOUR_APP_ID&scope=bot%20applications.commands&permissions=84992`
 
 - `client_id`: your Application ID (a numeric ID), not the token.
 - `scope`: keeps slash commands and bot permissions.
-- `permissions=83968`: minimal set for Send Messages (2048) + Embed Links (16384) + Read Message History (65536). Adjust if you need more.
+- `permissions=84992`: View Channels (1024) + Send Messages (2048) + Embed Links (16384) + Read Message History (65536). Adjust if you need more.
 
 🙋 Troubleshooting
 
