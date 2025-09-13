@@ -2,6 +2,7 @@ import os
 import asyncio
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+import re
 
 import aiohttp
 import aiosqlite
@@ -17,7 +18,7 @@ load_dotenv()
 # ----------------- Config -----------------
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 POLL_MINUTES = int(os.getenv("POLL_MINUTES", "30"))
-DB_PATH = "free_deals.sqlite3"
+DB_PATH = os.getenv("DB_PATH", "free_deals.sqlite3")
 
 # Discord setup
 INTENTS = discord.Intents.default()
@@ -264,65 +265,137 @@ async def get_steam_free_promos(session: aiohttp.ClientSession, region: str = "U
     """
     Returns list of dicts: {app_id, title, url, started_at(None), ends_at(None)}
     Strategy:
-      1) Pull 'specials' from featured categories for region.
-      2) For each item, confirm via appdetails (region) that:
+      1) Query Steam search results with specials=1 & maxprice=free (region-aware),
+         paginating through all results. This captures all 100%-off items, not just featured.
+      2) For each found appid, confirm via appdetails (region) that:
          - type == 'game'
-         - is_free == False
-         - price_overview.initial > 0 and price_overview.final == 0
+         - price_overview.initial > 0 (exclude permanently free titles)
+         - AND one of:
+             - price_overview.discount_percent == 100
+             - price_overview.final == 0
+             - price_overview.final_formatted == 'Free'
     """
-    featured_url = (
-        f"https://store.steampowered.com/api/featuredcategories?cc={region}&l=en"
-    )
-    data = await fetch_json(session, featured_url)
-    specials = (data.get("specials") or {}).get("items", []) or []
-    results = []
+    # 1) Collect all appids from search pages
+    #    Use category1=998 to bias toward Games in search results; we'll still verify type via appdetails.
+    #    The endpoint returns JSON with `results_html` and `total_count`.
+    def build_search_url(start: int, count: int = 50) -> str:
+        return (
+            "https://store.steampowered.com/search/results/?"
+            f"query&start={start}&count={count}"
+            "&specials=1&maxprice=free"
+            f"&cc={region}&l=en&infinite=1&category1=998"
+        )
+
+    appids: List[int] = []
+    seen_ids = set()
+    start = 0
+    total = None
+    # Cap pages defensively
+    max_pages = 40
+    pages = 0
+    while pages < max_pages:
+        pages += 1
+        url = build_search_url(start)
+        try:
+            page = await fetch_json(session, url)
+        except Exception:
+            break
+
+        results_html = (page or {}).get("results_html") or ""
+        # Extract appids only (ignore packages/bundles)
+        ids = [int(m) for m in re.findall(r'data-ds-appid=\"(\d+)\"', results_html)]
+        for i in ids:
+            if i not in seen_ids:
+                seen_ids.add(i)
+                appids.append(i)
+
+        if total is None:
+            total = int((page or {}).get("total_count") or 0)
+        # Advance
+        start += 50
+        # Stop if we've collected as many as reported, or no new ids are returned
+        if total is not None and len(appids) >= total:
+            break
+        if not ids:
+            break
+
+    # Fallback: if search returned nothing, try featured specials as a backup source
+    if not appids:
+        try:
+            featured_url = (
+                f"https://store.steampowered.com/api/featuredcategories?cc={region}&l=en"
+            )
+            data = await fetch_json(session, featured_url)
+            specials = (data.get("specials") or {}).get("items", []) or []
+            for item in specials:
+                i = item.get("id")
+                if isinstance(i, int) and i not in seen_ids:
+                    seen_ids.add(i)
+                    appids.append(i)
+        except Exception:
+            pass
+
+    # 2) Verify via appdetails with robust price checks
+    results: List[Dict] = []
 
     async def fetch_details(appid: int):
-        # Build without cc then add cc param to avoid double-cc
         base = f"https://store.steampowered.com/api/appdetails?appids={appid}"
-        details = await fetch_json(session, f"{base}&cc={region}")
-        return details
+        return await fetch_json(session, f"{base}&cc={region}&l=en")
 
-    for item in specials:
-        appid = item.get("id")
-        if not appid:
-            continue
+    # Limit concurrency to be gentle
+    sem = asyncio.Semaphore(10)
 
-        try:
-            details = await fetch_details(appid)
-        except Exception:
-            continue
+    async def process_app(appid: int):
+        async with sem:
+            try:
+                details = await fetch_details(appid)
+            except Exception:
+                return None
+            block = (details or {}).get(str(appid), {})
+            if not block.get("success"):
+                return None
+            d = block.get("data") or {}
+            if d.get("type") != "game":
+                return None
 
-        block = details.get(str(appid), {})
-        if not block.get("success"):
-            continue
-        d = block.get("data") or {}
+            price = d.get("price_overview") or {}
+            initial = price.get("initial")
+            final = price.get("final")
+            discount_percent = price.get("discount_percent")
+            final_formatted = price.get("final_formatted")
 
-        if d.get("type") != "game":
-            continue
+            # Must have been a paid title originally
+            if not isinstance(initial, int) or initial <= 0:
+                return None
 
-        is_free = d.get("is_free", False)
-        price = d.get("price_overview") or {}
-        initial = price.get("initial")
-        final = price.get("final")
+            # Consider several signals of 100% discount
+            is_free_now = False
+            if isinstance(discount_percent, int) and discount_percent == 100:
+                is_free_now = True
+            elif isinstance(final, int) and final == 0:
+                is_free_now = True
+            elif isinstance(final_formatted, str) and final_formatted.strip().lower() == "free":
+                is_free_now = True
 
-        if isinstance(initial, int) and isinstance(final, int):
-            if (not is_free) and initial > 0 and final == 0:
-                title = d.get("name", f"App {appid}")
-                url = f"https://store.steampowered.com/app/{appid}"
-                results.append(
-                    {
-                        "app_id": str(appid),
-                        "title": title,
-                        "url": url,
-                        "started_at": None,
-                        "ends_at": None,
-                    }
-                )
+            if not is_free_now:
+                return None
 
-    # De-dup
-    seen = set()
-    uniq = []
+            return {
+                "app_id": str(appid),
+                "title": d.get("name", f"App {appid}"),
+                "url": f"https://store.steampowered.com/app/{appid}",
+                "started_at": None,
+                "ends_at": None,
+            }
+
+    tasks_list = [process_app(aid) for aid in appids]
+    processed = await asyncio.gather(*tasks_list)
+    for r in processed:
+        if r:
+            results.append(r)
+
+    # De-dup by app_id
+    uniq, seen = [], set()
     for r in results:
         if r["app_id"] not in seen:
             seen.add(r["app_id"])

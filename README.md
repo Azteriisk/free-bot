@@ -22,7 +22,7 @@ Announces games temporarily discounted to free on Epic Games Store and Steam, an
 🧠 How It Detects Freebies
 
 - Epic Games Store: Active promo window flagged in the feed; counts a title as free when the promo is live and the original price was > $0 (Epic often reports `discountPercentage: 0` during free weeks; we rely on the promo window, not listed price).
-- Steam: Confirms via appdetails that it’s a game, not permanently free (`is_free == false`), and that `price_overview.final == 0` with a positive original price.
+ - Steam: Confirms via appdetails that it's a game, was originally paid (`price_overview.initial > 0`), and is currently free by any of these signals: `discount_percent == 100`, `final == 0`, or `final_formatted == 'Free'`. This avoids excluding promos that momentarily set `is_free = true` while on a 100% discount.
 
 🛠️ Setup
 
@@ -73,6 +73,19 @@ Build & run:
 docker build -t free-bot .
 docker run --env-file .env --name free-bot free-bot
 ```
+
+Windows PowerShell helper:
+
+- Use the included `Start-Docker.ps1` script to build and run:
+  - `./Start-Docker.ps1 -Rebuild` — build image (or reuse) and run detached
+  - `./Start-Docker.ps1 -Rebuild -PersistDb` — also mount `./data` and persist the SQLite DB
+
+Bash helper (Linux/macOS/WSL):
+
+- Make it executable: `chmod +x ./start-docker.sh`
+- Build and run:
+  - `./start-docker.sh -r`
+  - `./start-docker.sh -r -p` — mount `./data` and persist the SQLite DB
 
 ℹ️ Notes
 
